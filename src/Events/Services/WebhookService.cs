@@ -43,10 +43,12 @@ namespace Altinn.Platform.Events.Services
         {
             string payload = GetPayload(envelope);
             using StringContent httpContent = new(payload, Encoding.UTF8, "application/json");
+            bool responseReceived = false;
 
             try
             {
                 using HttpResponseMessage response = await _client.PostAsync(envelope.Endpoint, httpContent, cancellationToken);
+                responseReceived = true;
 
                 // log response from webhook to Events
                 await _traceLogService.CreateWebhookResponseEntry(GetLogEntry(envelope, response.StatusCode, response.IsSuccessStatusCode));
@@ -61,6 +63,11 @@ namespace Altinn.Platform.Events.Services
             }
             catch (Exception e)
             {
+                if (!responseReceived && !cancellationToken.IsCancellationRequested)
+                {
+                    await TryLogPostFailure(envelope);
+                }
+
                 _logger.LogError(e, "Send to webhook with {SubscriptionId} failed with error message {Message}", envelope.SubscriptionId, e.Message);
                 throw;
             }
@@ -85,7 +92,19 @@ namespace Altinn.Platform.Events.Services
             }
         }
 
-        private static LogEntryDto GetLogEntry(CloudEventEnvelope envelope, HttpStatusCode statusCode, bool isSuccessStatusCode)
+        private async Task TryLogPostFailure(CloudEventEnvelope envelope)
+        {
+            try
+            {
+                await _traceLogService.CreateWebhookResponseEntry(GetLogEntry(envelope, null, false));
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Failed to create trace log entry for failed webhook post {CloudEventId} {SubscriptionId}", envelope.CloudEvent?.Id, envelope.SubscriptionId);
+            }
+        }
+
+        private static LogEntryDto GetLogEntry(CloudEventEnvelope envelope, HttpStatusCode? statusCode, bool isSuccessStatusCode)
         {
             return new LogEntryDto
             {

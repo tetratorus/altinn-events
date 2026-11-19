@@ -41,10 +41,12 @@ namespace Altinn.Platform.Events.Functions.Services
         {
             string payload = GetPayload(envelope);
             StringContent httpContent = new(payload, Encoding.UTF8, "application/json");
+            bool responseReceived = false;
 
             try
             {
                 HttpResponseMessage response = await _client.PostAsync(envelope.Endpoint, httpContent);
+                responseReceived = true;
 
                 // log response from webhook to Events
                 await _eventsClient.LogWebhookHttpStatusCode(envelope, response.StatusCode, response.IsSuccessStatusCode);
@@ -59,6 +61,11 @@ namespace Altinn.Platform.Events.Functions.Services
             }
             catch (Exception e)
             {
+                if (!responseReceived)
+                {
+                    await _eventsClient.LogWebhookPostFailure(envelope);
+                }
+
                 _logger.LogError(e, "Send to webhook with {SubscriptionId} failed with error message {Message}", envelope.SubscriptionId, e.Message);
                 throw;
             }

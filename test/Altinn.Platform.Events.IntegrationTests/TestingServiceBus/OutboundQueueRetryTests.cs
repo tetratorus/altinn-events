@@ -64,6 +64,41 @@ public class OutboundQueueRetryTests(IntegrationTestContainersFixture fixture)
     }
 
     /// <summary>
+    /// Tests that a webhook post that fails without a response (here: connection refused) is written
+    /// to the trace log in the database, using the real webhook service.
+    /// </summary>
+    [Fact]
+    public async Task OutboundEventCommand_WhenWebhookUnreachable_PostFailureWrittenToTraceLog()
+    {
+        // Arrange
+        var factory = new IntegrationTestWebApplicationFactory(_fixture).Initialize();
+
+        await using (factory)
+        {
+            var envelope = CloudEventTestData.CreateTestEnvelope();
+            envelope.Endpoint = new Uri("http://127.0.0.1:1/webhook");
+            var command = new OutboundEventCommand(envelope.Serialize());
+
+            // Act
+            await factory.PublishMessageAsync(command);
+
+            // Assert
+            var entries = await WaitForUtils.WaitForAsync(
+                async () =>
+                {
+                    var result = await PostgresTestUtils.GetTraceLogEntriesAsync(_fixture.PostgresConnectionString, envelope.CloudEvent.Id!);
+                    return result.Count > 0 ? result : null;
+                },
+                maxAttempts: 30,
+                delayMs: 500,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.NotNull(entries);
+            Assert.All(entries, e => Assert.Equal((nameof(TraceLogActivity.WebhookPostFailed), (int?)null), e));
+        }
+    }
+
+    /// <summary>
     /// Tests the retry policy when the webhook throws HttpRequestException.
     /// Message should retry according to outbound policy then move to dead letter queue.
     /// Outbound has more retries than other queues.

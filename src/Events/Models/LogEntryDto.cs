@@ -42,7 +42,7 @@ namespace Altinn.Platform.Events.Models
         public Uri? Endpoint { get; set; }
 
         /// <summary>
-        /// The staus code returned from the subscriber endpoint
+        /// The status code returned from the subscriber endpoint. Null if the post failed without a response.
         /// </summary>
         public HttpStatusCode? StatusCode { get; set; }
 

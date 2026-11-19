@@ -158,6 +158,7 @@ namespace Altinn.Platform.Events.Functions.Tests.TestingServices
                     HttpStatusCode.ServiceUnavailable,
                     false),
                 Times.Once);
+            _eventsClientMock.Verify(x => x.LogWebhookPostFailure(It.IsAny<Altinn.Platform.Events.Functions.Models.CloudEventEnvelope>()), Times.Never);
             handlerMock.VerifyAll();
         }
 
@@ -189,7 +190,7 @@ namespace Altinn.Platform.Events.Functions.Tests.TestingServices
         }
 
         [Fact]
-        public async Task Send_ClientThrows_LogsAndRethrowsAndSkipsEventClientLogging()
+        public async Task Send_ClientThrows_LogsPostFailureAndRethrows()
         {
             // Arrange
             Mock<ILogger<AsbWebhookService>> loggerMock = new();
@@ -211,7 +212,38 @@ namespace Altinn.Platform.Events.Functions.Tests.TestingServices
             _eventsClientMock.Verify(
                 x => x.LogWebhookHttpStatusCode(It.IsAny<Altinn.Platform.Events.Functions.Models.CloudEventEnvelope>(), It.IsAny<HttpStatusCode>(), It.IsAny<bool>()),
                 Times.Never);
+            _eventsClientMock.Verify(
+                x => x.LogWebhookPostFailure(
+                    It.Is<Altinn.Platform.Events.Functions.Models.CloudEventEnvelope>(e => e.SubscriptionId == 1337 && e.Endpoint == cloudEventEnvelope.Endpoint && e.CloudEvent == _minimalCloudEvent)),
+                Times.Once);
             handlerMock.VerifyAll();
+        }
+
+        [Fact]
+        public async Task Send_CallerCancels_NoPostFailureLogged()
+        {
+            // Arrange
+            using CancellationTokenSource cts = new();
+            cts.Cancel();
+
+            var handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
+            handlerMock.Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+                .Returns((HttpRequestMessage _, CancellationToken token) => Task.FromCanceled<HttpResponseMessage>(token));
+
+            var sut = new AsbWebhookService(CreateHttpClientFactory(new HttpClient(handlerMock.Object)), _eventsClientMock.Object, _eventsOutboundSettings, new Mock<ILogger<AsbWebhookService>>().Object);
+
+            var cloudEventEnvelope = new CloudEventEnvelope
+            {
+                Endpoint = new Uri("https://vg.no"),
+                CloudEvent = _minimalCloudEvent
+            };
+
+            // Act
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sut.Send(cloudEventEnvelope, cts.Token));
+
+            // Assert
+            _eventsClientMock.Verify(x => x.LogWebhookPostFailure(It.IsAny<Altinn.Platform.Events.Functions.Models.CloudEventEnvelope>()), Times.Never);
         }
 
         private static IHttpClientFactory CreateHttpClientFactory(HttpClient client)

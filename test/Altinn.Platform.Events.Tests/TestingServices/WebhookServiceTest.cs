@@ -188,6 +188,8 @@ public class WebhookServiceTest
         await Assert.ThrowsAsync<HttpRequestException>(async () => await sut.Send(cloudEventEnvelope, CancellationToken.None));
 
         // Assert
+        _traceLogServiceMock.Verify(x => x.CreateWebhookResponseEntry(It.IsAny<LogEntryDto>()), Times.Once);
+        _traceLogServiceMock.Verify(x => x.CreateWebhookResponseEntry(It.Is<LogEntryDto>(d => d.StatusCode == HttpStatusCode.ServiceUnavailable)), Times.Once);
         loggerMock.Verify(x => x.Log(LogLevel.Error, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(), It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()), Times.Exactly(2));
         handlerMock.VerifyAll();
     }
@@ -272,13 +274,99 @@ public class WebhookServiceTest
         var cloudEventEnvelope = new CloudEventEnvelope()
         {
             Endpoint = new Uri("https://unreachable.example.com"),
-            CloudEvent = _minimalCloudEvent
+            CloudEvent = _minimalCloudEvent,
+            SubscriptionId = 1337,
+            Consumer = "/party/test"
         };
 
         // Act & Assert
         await Assert.ThrowsAsync<HttpRequestException>(async () => await sut.Send(cloudEventEnvelope, CancellationToken.None));
 
         loggerMock.Verify(x => x.Log(LogLevel.Error, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(), It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()), Times.Once);
+        _traceLogServiceMock.Verify(
+            x => x.CreateWebhookResponseEntry(It.Is<LogEntryDto>(d =>
+                d.StatusCode == null &&
+                d.IsSuccessStatusCode == false &&
+                d.CloudEventId == _cloudEventId &&
+                d.SubscriptionId == 1337 &&
+                d.Consumer == "/party/test" &&
+                d.Endpoint == cloudEventEnvelope.Endpoint)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Send_ClientTimesOut_PostFailureTraceLogged()
+    {
+        // Arrange
+        var handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout"));
+
+        var sut = new WebhookService(CreateFactory(new HttpClient(handlerMock.Object)), _traceLogServiceMock.Object, _eventsOutboundSettings, new Mock<ILogger<WebhookService>>().Object);
+
+        var cloudEventEnvelope = new CloudEventEnvelope()
+        {
+            Endpoint = new Uri("https://slow.example.com"),
+            CloudEvent = _minimalCloudEvent
+        };
+
+        // Act
+        await Assert.ThrowsAsync<TaskCanceledException>(async () => await sut.Send(cloudEventEnvelope, CancellationToken.None));
+
+        // Assert
+        _traceLogServiceMock.Verify(x => x.CreateWebhookResponseEntry(It.Is<LogEntryDto>(d => d.StatusCode == null && d.IsSuccessStatusCode == false)), Times.Once);
+    }
+
+    [Fact]
+    public async Task Send_CallerCancels_NoPostFailureTraceLogged()
+    {
+        // Arrange
+        using CancellationTokenSource cts = new();
+        cts.Cancel();
+
+        var handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+            .Returns((HttpRequestMessage _, CancellationToken token) => Task.FromCanceled<HttpResponseMessage>(token));
+        var sut = new WebhookService(CreateFactory(new HttpClient(handlerMock.Object)), _traceLogServiceMock.Object, _eventsOutboundSettings, new Mock<ILogger<WebhookService>>().Object);
+
+        var cloudEventEnvelope = new CloudEventEnvelope()
+        {
+            Endpoint = new Uri("https://vg.no"),
+            CloudEvent = _minimalCloudEvent
+        };
+
+        // Act
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await sut.Send(cloudEventEnvelope, cts.Token));
+
+        // Assert
+        _traceLogServiceMock.Verify(x => x.CreateWebhookResponseEntry(It.IsAny<LogEntryDto>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Send_ClientThrowsAndTraceLogFails_OriginalExceptionRethrown()
+    {
+        // Arrange
+        var handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("The SSL connection could not be established"));
+
+        Mock<ITraceLogService> traceLogServiceMock = new();
+        traceLogServiceMock.Setup(x => x.CreateWebhookResponseEntry(It.IsAny<LogEntryDto>())).ThrowsAsync(new InvalidOperationException("database down"));
+
+        var sut = new WebhookService(CreateFactory(new HttpClient(handlerMock.Object)), traceLogServiceMock.Object, _eventsOutboundSettings, new Mock<ILogger<WebhookService>>().Object);
+
+        var cloudEventEnvelope = new CloudEventEnvelope()
+        {
+            Endpoint = new Uri("https://badcert.example.com"),
+            CloudEvent = _minimalCloudEvent
+        };
+
+        // Act & Assert
+        var actual = await Assert.ThrowsAsync<HttpRequestException>(async () => await sut.Send(cloudEventEnvelope, CancellationToken.None));
+        Assert.Equal("The SSL connection could not be established", actual.Message);
     }
 
     private static IHttpClientFactory CreateFactory(HttpClient client)

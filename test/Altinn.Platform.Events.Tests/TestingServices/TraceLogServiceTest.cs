@@ -258,7 +258,6 @@ namespace Altinn.Platform.Events.Tests.TestingServices
         /// <returns></returns>
         [Theory]
         [InlineData(null, HttpStatusCode.OK, "ce2b205a-4980-4ac2-bbc2-159d77478b87")]
-        [InlineData("http://localhost", null, "ce2b205a-4980-4ac2-bbc2-159d77478b87")]
         [InlineData("http://localhost", HttpStatusCode.OK, null)]
         public async Task Create_TraceLogFromWebhookWithInvalidDto_ReturnsEmptyString(string endpoint, HttpStatusCode? httpStatusCode, string cloudEventId)
         {
@@ -280,6 +279,44 @@ namespace Altinn.Platform.Events.Tests.TestingServices
             // Assert
             Assert.Equal(response, string.Empty);
             loggerMock.Verify(x => x.Log(LogLevel.Error, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(), It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()), Times.Once);
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///   The webhook post failed without a response (no status code), e.g. connection, DNS, TLS or timeout errors
+        /// Success criteria:
+        ///   Entry is saved with activity WebhookPostFailed and no response code, or EndpointValidationFailed for validation events
+        /// </summary>
+        [Theory]
+        [InlineData("automated.test", TraceLogActivity.WebhookPostFailed)]
+        [InlineData("platform.events.validatesubscription", TraceLogActivity.EndpointValidationFailed)]
+        public async Task Create_TraceLogFromWebhookWithoutStatusCode_SavesPostFailure(string cloudEventType, TraceLogActivity expectedActivity)
+        {
+            // Arrange
+            var traceLogRepositoryMock = new Mock<ITraceLogRepository>();
+            var traceLogService = new TraceLogService(traceLogRepositoryMock.Object, NullLogger<TraceLogService>.Instance);
+
+            // Act
+            var result = await traceLogService.CreateWebhookResponseEntry(new LogEntryDto
+            {
+                CloudEventId = _cloudEvent.Id,
+                CloudEventType = cloudEventType,
+                Consumer = "consumer",
+                SubscriptionId = 1,
+                IsSuccessStatusCode = true,
+                Endpoint = new Uri("https://localhost:3000"),
+                StatusCode = null
+            });
+
+            // Assert
+            Assert.Equal(_cloudEvent.Id, result);
+            traceLogRepositoryMock.Verify(
+                x => x.CreateTraceLogEntry(It.Is<TraceLog>(y =>
+                    y.Activity == expectedActivity &&
+                    y.ResponseCode == null &&
+                    y.SubscriptionId == 1 &&
+                    y.SubscriberEndpoint == "https://localhost:3000/")),
+                Times.Once);
         }
 
         /// <summary>
