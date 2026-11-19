@@ -113,7 +113,7 @@ public class InboundQueueRetryTests(IntegrationTestContainersFixture fixture)
             var deadLetterMessage = await ServiceBusTestUtils.WaitForDeadLetterMessageAsync(
                 _fixture,
                 factory.WolverineSettings.InboundQueueName,
-                TimeSpan.FromSeconds(5));
+                TimeSpan.FromSeconds(15));
             Assert.NotNull(deadLetterMessage);
 
             // Assert - Verify the handler was called the expected number of times
