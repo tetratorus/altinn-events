@@ -113,7 +113,7 @@ namespace Altinn.Platform.Events.Services
         }
 
         /// <summary>
-        /// Log response from webhook post to subscriber.
+        /// Log response from webhook post to subscriber, or the failed post if no response was received (StatusCode is null).
         /// Should be called by the storage controller when a webhook POST response is received. The controller action should handle exceptions
         /// for better handling of correct status codes
         /// </summary>
@@ -149,13 +149,14 @@ namespace Altinn.Platform.Events.Services
         private static TraceLogActivity DetermineActivityBasedOnTypeAndResponse(LogEntryDto logEntryDto)
         {
             var isValidationType = logEntryDto.CloudEventType != null && logEntryDto.CloudEventType.Equals(_validationType);
+            var responseReceived = logEntryDto.StatusCode != null;
 
             if (isValidationType)
             {
-                return logEntryDto.IsSuccessStatusCode == true ? TraceLogActivity.EndpointValidationSuccess : TraceLogActivity.EndpointValidationFailed;
+                return responseReceived && logEntryDto.IsSuccessStatusCode == true ? TraceLogActivity.EndpointValidationSuccess : TraceLogActivity.EndpointValidationFailed;
             }
 
-            return TraceLogActivity.WebhookPostResponse;
+            return responseReceived ? TraceLogActivity.WebhookPostResponse : TraceLogActivity.WebhookPostFailed;
         }
 
         /// <summary>
@@ -167,8 +168,7 @@ namespace Altinn.Platform.Events.Services
             string[] errors =
             [
                 !parseResult ? "Invalid GUID" : string.Empty,
-        logEntryDto.Endpoint == null ? "Missing required Endpoint parameter" : string.Empty,
-        logEntryDto.StatusCode == null ? "Missing required StatusCode parameter" : string.Empty
+                logEntryDto.Endpoint == null ? "Missing required Endpoint parameter" : string.Empty
             ];
             var aggregatedErrorMessage = string.Join(", ", errors.Where(s => !string.IsNullOrEmpty(s)));
 

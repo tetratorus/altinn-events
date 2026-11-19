@@ -20,7 +20,7 @@ public interface ITraceLogService
     Task<string> CreateRegisteredEntry(CloudEvent cloudEvent);
 
     /// <summary>
-    /// Log response from webhook post to subscriber.
+    /// Log response from webhook post to subscriber, or the failed post if no response was received (StatusCode is null).
     /// </summary>
     /// <param name="logEntryDto">Data transfer object associated with cloud event, status code, and subscription</param>
     /// <returns>A string representation of the GUID or an empty string</returns>

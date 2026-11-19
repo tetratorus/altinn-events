@@ -142,7 +142,18 @@ namespace Altinn.Platform.Events.Functions.Clients
         /// <param name="statusCode">Http status code returned</param>
         /// <param name="isSuccessStatusCode">Boolean value that indicates whether the status code was successful or not</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        public async Task LogWebhookHttpStatusCode(CloudEventEnvelope cloudEventEnvelope, HttpStatusCode statusCode, bool isSuccessStatusCode)
+        public Task LogWebhookHttpStatusCode(CloudEventEnvelope cloudEventEnvelope, HttpStatusCode statusCode, bool isSuccessStatusCode)
+        {
+            return PostLogEntry(cloudEventEnvelope, statusCode, isSuccessStatusCode);
+        }
+
+        /// <inheritdoc/>
+        public Task LogWebhookPostFailure(CloudEventEnvelope cloudEventEnvelope)
+        {
+            return PostLogEntry(cloudEventEnvelope, null, false);
+        }
+
+        private async Task PostLogEntry(CloudEventEnvelope cloudEventEnvelope, HttpStatusCode? statusCode, bool isSuccessStatusCode)
         {
             try
             {

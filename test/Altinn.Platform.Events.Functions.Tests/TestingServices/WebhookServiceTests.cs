@@ -184,6 +184,7 @@ namespace Altinn.Platform.Events.Functions.Tests.TestingServices
 
             // Assert
             _eventsClientMock.Verify(x => x.LogWebhookHttpStatusCode(cloudEventEnvelope, HttpStatusCode.ServiceUnavailable, false), Times.Once);
+            _eventsClientMock.Verify(x => x.LogWebhookPostFailure(It.IsAny<CloudEventEnvelope>()), Times.Never);
             loggerMock.Verify(x => x.Log(LogLevel.Error, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(), It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()), Times.Exactly(2));
             handlerMock.VerifyAll();
         }
@@ -213,7 +214,7 @@ namespace Altinn.Platform.Events.Functions.Tests.TestingServices
         }
 
         [Fact]
-        public async Task Send_ClientThrows_LogsAndRethrowsAndSkipsEventClientLogging()
+        public async Task Send_ClientThrows_LogsPostFailureAndRethrows()
         {
             // Arrange
             Mock<ILogger<WebhookService>> loggerMock = new Mock<ILogger<WebhookService>>();
@@ -233,6 +234,7 @@ namespace Altinn.Platform.Events.Functions.Tests.TestingServices
 
             // Assert
             _eventsClientMock.Verify(x => x.LogWebhookHttpStatusCode(It.IsAny<CloudEventEnvelope>(), It.IsAny<HttpStatusCode>(), It.IsAny<bool>()), Times.Never);
+            _eventsClientMock.Verify(x => x.LogWebhookPostFailure(cloudEventEnvelope), Times.Once);
             loggerMock.Verify(x => x.Log(LogLevel.Error, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(), It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()), Times.Once);
             handlerMock.VerifyAll();
         }

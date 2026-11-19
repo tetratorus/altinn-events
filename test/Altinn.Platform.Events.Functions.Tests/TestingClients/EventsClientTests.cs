@@ -107,6 +107,43 @@ namespace Altinn.Platform.Events.Functions.Tests.TestingClients
         }
 
         [Fact]
+        public async Task LogWebhookPostFailure_PostsLogEntryWithoutStatusCode()
+        {
+            // Arrange
+            string actualBody = null;
+            var handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
+            handlerMock.Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.Is<HttpRequestMessage>(rm => rm.RequestUri!.Equals("https://platform.test.altinn.cloud/events/api/v1/storage/events/logs")), ItExpr.IsAny<CancellationToken>())
+                .Returns(async (HttpRequestMessage request, CancellationToken token) =>
+                {
+                    actualBody = await request.Content!.ReadAsStringAsync(token);
+                    return new HttpResponseMessage(HttpStatusCode.Created);
+                })
+                .Verifiable();
+
+            var sut = CreateTestInstance(handlerMock.Object);
+
+            var cloudEnvelope = new CloudEventEnvelope
+            {
+                CloudEvent = _cloudEvent,
+                SubscriptionId = 1337,
+                Endpoint = new Uri("https://localhost:5000")
+            };
+
+            // Act
+            await sut.LogWebhookPostFailure(cloudEnvelope);
+
+            // Assert
+            handlerMock.VerifyAll();
+            var actual = System.Text.Json.JsonSerializer.Deserialize<LogEntryDto>(actualBody!);
+            Assert.NotNull(actual);
+            Assert.Null(actual.StatusCode);
+            Assert.False(actual.IsSuccessStatusCode);
+            Assert.Equal(1337, actual.SubscriptionId);
+            Assert.Equal(_cloudEvent.Id, actual.CloudEventId);
+        }
+
+        [Fact]
         public async Task SaveCloudEvent_NonSuccessResponse_ErrorLoggedAndExceptionThrown()
         {
             // Arrange

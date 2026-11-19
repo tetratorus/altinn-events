@@ -49,5 +49,10 @@
         /// A duplicate cloud event (matching an existing idempotency key) was detected and skipped.
         /// </summary>
         DuplicateIdempotencyKeySkipped,
+
+        /// <summary>
+        /// The post to the consumer endpoint failed without a response, e.g. connection, DNS, TLS or timeout errors
+        /// </summary>
+        WebhookPostFailed,
     }
 }
