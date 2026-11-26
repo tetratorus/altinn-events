@@ -192,6 +192,7 @@ public class OutboundControllerTests : IClassFixture<WebApplicationFactory<Outbo
         Mock<IOutboundService> service = new Mock<IOutboundService>();
 
         HttpClient client = GetTestClient(service.Object);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1));
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, requestUri)
         {
             Content = new StringContent(cloudEvent.Serialize(), Encoding.UTF8, "application/cloudevents+json")

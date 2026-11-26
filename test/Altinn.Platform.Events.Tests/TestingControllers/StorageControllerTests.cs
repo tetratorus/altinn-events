@@ -190,6 +190,7 @@ namespace Altinn.Platform.Events.Tests.TestingControllers
                 Mock<IEventsService> service = new Mock<IEventsService>();
 
                 HttpClient client = GetTestClient(service.Object);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1));
                 HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, requestUri)
                 {
                     Content = new StringContent(cloudEvent.Serialize(), Encoding.UTF8, "application/cloudevents+json")

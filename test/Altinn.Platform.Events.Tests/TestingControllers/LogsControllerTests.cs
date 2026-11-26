@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -170,6 +171,7 @@ public partial class IntegrationTests
             Mock<ITraceLogService> traceLogService = new();
 
             HttpClient client = GetTestClient(eventsService.Object, traceLogService.Object);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1));
             HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, requestUri)
             {
                 Content = new StringContent(JsonSerializer.Serialize(new LogEntryDto()), Encoding.UTF8, "application/cloudevents+json")
