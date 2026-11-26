@@ -27,7 +27,7 @@ namespace Altinn.Platform.Events.Controllers
         /// </summary>
         /// <param name="logEntry">The event wrapper associated with the event for logging <see cref="CloudEventEnvelope"/></param>
         /// <returns></returns>
-        [Authorize(Policy = AuthorizationConstants.POLICY_PLATFORM_ACCESS)]
+        [Authorize(Policy = AuthorizationConstants.POLICY_PLATFORM_ISSUER_ACCESS)]
         [HttpPost]
         [Consumes("application/json")]
         [SwaggerResponse(201, Type = typeof(Guid))]

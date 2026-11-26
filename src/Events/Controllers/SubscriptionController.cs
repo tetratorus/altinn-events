@@ -149,7 +149,7 @@ namespace Altinn.Platform.Events.Controllers
         /// <summary>
         /// Method to validate a specific subscription. Only avaiable from validation function.
         /// </summary>
-        [Authorize(Policy = "PlatformAccess")]
+        [Authorize(Policy = AuthorizationConstants.POLICY_PLATFORM_ISSUER_ACCESS)]
         [HttpPut("validate/{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

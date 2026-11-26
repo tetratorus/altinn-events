@@ -245,6 +245,24 @@ namespace Altinn.Platform.Events.Tests.TestingControllers
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             }
 
+            [Fact]
+            public async Task Validate_AccessTokenNotIssuedByPlatform_ReturnsForbidden()
+            {
+                // Arrange
+                string requestUri = $"{BasePath}/subscriptions/validate/16";
+                HttpClient client = GetTestClient();
+
+                HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri);
+
+                httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+
+                // Act
+                HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
+
+                // Assert
+                Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            }
+
             /// <summary>
             /// Post valid subscription for a generic event. Missing required scope in token.
             /// Expected result:

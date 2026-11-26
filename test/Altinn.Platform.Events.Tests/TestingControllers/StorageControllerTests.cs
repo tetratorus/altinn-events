@@ -79,7 +79,7 @@ namespace Altinn.Platform.Events.Tests.TestingControllers
                     Content = new StringContent(cloudEvent.Serialize(), Encoding.UTF8, "application/cloudevents+json")
                 };
 
-                httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+                httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("platform", "events"));
 
                 // Act
                 HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
@@ -110,7 +110,7 @@ namespace Altinn.Platform.Events.Tests.TestingControllers
                 {
                     Content = new StringContent(cloudEvent.Serialize(), Encoding.UTF8, "application/cloudevents+json")
                 };
-                httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+                httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("platform", "events"));
 
                 // Act
                 HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
@@ -173,6 +173,38 @@ namespace Altinn.Platform.Events.Tests.TestingControllers
                 Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             }
          
+            /// <summary>
+            /// Scenario:
+            ///   Post a cloud event with an access token issued by an application owner instead of the platform.
+            /// Expected result:
+            ///   Returns HttpStatus Forbidden.
+            /// Success criteria:
+            ///   The request is rejected and the service is never called.
+            /// </summary>
+            [Fact]
+            public async Task Post_AccessTokenNotIssuedByPlatform_ReturnsForbidden()
+            {
+                // Arrange
+                string requestUri = $"{BasePath}/storage/events";
+                var cloudEvent = GetCloudEventRequest();
+                Mock<IEventsService> service = new Mock<IEventsService>();
+
+                HttpClient client = GetTestClient(service.Object);
+                HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, requestUri)
+                {
+                    Content = new StringContent(cloudEvent.Serialize(), Encoding.UTF8, "application/cloudevents+json")
+                };
+
+                httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+
+                // Act
+                HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
+
+                // Assert
+                Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+                service.Verify(s => s.Save(It.IsAny<CloudEvent>(), It.IsAny<Guid?>()), Times.Never);
+            }
+
             private HttpClient GetTestClient(IEventsService eventsService)
             {
                 HttpClient client = _factory.WithWebHostBuilder(builder =>

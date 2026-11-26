@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Altinn.Platform.Events.Configuration;
 using Altinn.Platform.Events.Services.Interfaces;
 
 using CloudNative.CloudEvents;
@@ -46,7 +47,7 @@ public class OutboundController : ControllerBase
     /// </remarks>
     /// <returns>A task representing the async operation with the action result.</returns>
     [HttpPost]
-    [Authorize(Policy = "PlatformAccess")]
+    [Authorize(Policy = AuthorizationConstants.POLICY_PLATFORM_ISSUER_ACCESS)]
     [Consumes("application/cloudevents+json")]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]

@@ -73,7 +73,7 @@ public partial class IntegrationTests
                 Content = new StringContent(JsonSerializer.Serialize(new LogEntryDto()), Encoding.UTF8, "application/cloudevents+json")
             };
 
-            httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+            httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("platform", "events"));
 
             // Act
             HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
@@ -105,7 +105,7 @@ public partial class IntegrationTests
             {
                 Content = new StringContent(JsonSerializer.Serialize(new LogEntryDto()), Encoding.UTF8, "application/cloudevents+json")
             };
-            httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+            httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("platform", "events"));
 
             // Act
             HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
@@ -143,7 +143,7 @@ public partial class IntegrationTests
                 Content = new StringContent(logEntryDto, Encoding.UTF8, "application/cloudevents+json")
             };
 
-            httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+            httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("platform", "events"));
 
             // Act
             var response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
@@ -151,6 +151,38 @@ public partial class IntegrationTests
             // Assert
             Assert.True(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///   Post a log entry with an access token issued by an application owner instead of the platform.
+        /// Expected result:
+        ///   Returns HttpStatus Forbidden.
+        /// Success criteria:
+        ///   The request is rejected and the trace log service is never called.
+        /// </summary>
+        [Fact]
+        public async Task Logs_AccessTokenNotIssuedByPlatform_ReturnsForbidden()
+        {
+            // Arrange
+            string requestUri = $"{_basePath}/storage/events/logs";
+            Mock<IEventsService> eventsService = new();
+            Mock<ITraceLogService> traceLogService = new();
+
+            HttpClient client = GetTestClient(eventsService.Object, traceLogService.Object);
+            HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, requestUri)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(new LogEntryDto()), Encoding.UTF8, "application/cloudevents+json")
+            };
+
+            httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+
+            // Act
+            HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            traceLogService.Verify(x => x.CreateWebhookResponseEntry(It.IsAny<LogEntryDto>()), Times.Never);
         }
 
         private HttpClient GetTestClient(IEventsService eventsService, ITraceLogService traceLogService = null)
