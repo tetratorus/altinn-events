@@ -78,7 +78,7 @@ public class OutboundControllerTests : IClassFixture<WebApplicationFactory<Outbo
             Content = new StringContent(cloudEvent.Serialize(), Encoding.UTF8, "application/cloudevents+json")
         };
 
-        httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+        httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("platform", "events"));
 
         // Act
         HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
@@ -112,7 +112,7 @@ public class OutboundControllerTests : IClassFixture<WebApplicationFactory<Outbo
         {
             Content = new StringContent(cloudEvent.Serialize(), Encoding.UTF8, "application/cloudevents+json")
         };
-        httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+        httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("platform", "events"));
 
         // Act
         HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
@@ -173,6 +173,39 @@ public class OutboundControllerTests : IClassFixture<WebApplicationFactory<Outbo
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Scenario:
+    ///   Post a cloud event with an access token issued by an application owner instead of the platform.
+    /// Expected result:
+    ///   Returns HttpStatus Forbidden.
+    /// Success criteria:
+    ///   The request is rejected and the service is never called.
+    /// </summary>
+    [Fact]
+    public async Task Post_AccessTokenNotIssuedByPlatform_ReturnsForbidden()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/outbound";
+        var cloudEvent = GetCloudEventRequest();
+        Mock<IOutboundService> service = new Mock<IOutboundService>();
+
+        HttpClient client = GetTestClient(service.Object);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1));
+        HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, requestUri)
+        {
+            Content = new StringContent(cloudEvent.Serialize(), Encoding.UTF8, "application/cloudevents+json")
+        };
+
+        httpRequestMessage.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd", "endring-av-navn-v2"));
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(httpRequestMessage, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        service.Verify(s => s.PostOutbound(It.IsAny<CloudEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private HttpClient GetTestClient(IOutboundService outboundService)

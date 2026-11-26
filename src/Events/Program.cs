@@ -223,6 +223,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             policy.Requirements.Add(new PublishScopeOrAccessTokenRequirement(AuthorizationConstants.SCOPE_EVENTS_PUBLISH));
         })
         .AddPolicy(AuthorizationConstants.POLICY_PLATFORM_ACCESS, policy => policy.Requirements.Add(new AccessTokenRequirement()))
+        .AddPolicy(AuthorizationConstants.POLICY_PLATFORM_ISSUER_ACCESS, policy => policy.Requirements.Add(new AccessTokenRequirement(AuthorizationConstants.PLATFORM_ACCESS_TOKEN_ISSUER)))
         .AddPolicy(AuthorizationConstants.POLICY_SCOPE_EVENTS_PUBLISH, policy => policy.Requirements.Add(new ScopeAccessRequirement(AuthorizationConstants.SCOPE_EVENTS_PUBLISH)))
         .AddPolicy(AuthorizationConstants.POLICY_SCOPE_EVENTS_SUBSCRIBE, policy => policy.Requirements.Add(new ScopeAccessRequirement(AuthorizationConstants.SCOPE_EVENTS_SUBSCRIBE)));
 

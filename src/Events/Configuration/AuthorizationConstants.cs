@@ -11,6 +11,16 @@
         public const string POLICY_PLATFORM_ACCESS = "PlatformAccess";
 
         /// <summary>
+        /// Id for policy requiring a platform access token issued by the Altinn platform
+        /// </summary>
+        public const string POLICY_PLATFORM_ISSUER_ACCESS = "PlatformIssuerAccess";
+
+        /// <summary>
+        /// The issuer of platform access tokens created by Altinn platform services
+        /// </summary>
+        public const string PLATFORM_ACCESS_TOKEN_ISSUER = "platform";
+
+        /// <summary>
         /// Id for policy scope for allowing publishing of events
         /// </summary>
         public const string POLICY_SCOPE_EVENTS_PUBLISH = "ScopeEventsPublish";

@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
+using Altinn.Platform.Events.Configuration;
 using Altinn.Platform.Events.Services.Interfaces;
 
 using CloudNative.CloudEvents;
@@ -39,7 +40,7 @@ namespace Altinn.Platform.Events.Controllers
         /// and further processing by the EventsInbound Azure function
         /// </summary>
         /// <returns>The cloudEvent subject and id</returns>
-        [Authorize(Policy = "PlatformAccess")]
+        [Authorize(Policy = AuthorizationConstants.POLICY_PLATFORM_ISSUER_ACCESS)]
         [HttpPost]
         [Consumes("application/cloudevents+json")]
         [SwaggerResponse(201, Type = typeof(Guid))]
